@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Vocab Analysis — Anki with Friends{% endblock %}
+
+{% block content %}
+  <h1 style="margin-top:0;">Vocab analysis</h1>
+  <p style="color: var(--muted); max-width: 75ch;">
+    Click to run the analysis script and regenerate <code>zipf_vocab_analysis.json</code>.
+  </p>
+
+  <div style="
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      max-width: 900px;
+      margin-bottom: 1rem;
+    ">
+
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap: 1rem; flex-wrap: wrap;">
+      <form method="post" action="/analysis/vocab/run" style="margin:0;">
+        <button type="submit" style="
+            border: 1px solid var(--border);
+            background: white;
+            border-radius: 10px;
+            padding: 0.6rem 0.9rem;
+            cursor: pointer;
+            font-weight: 650;
+          ">
+          Run vocab analysis
+        </button>
+      </form>
+
+      <div style="color: var(--muted); font-size: 0.95rem; min-width: 320px;">
+        {% if file_info %}
+          <div><strong style="color:#111827;">Existing output found</strong></div>
+          <div>Path: <code>{{ file_info.path }}</code></div>
+          <div>Modified: <code>{{ file_info.modified }}</code></div>
+          <div>Size: <code>{{ file_info.size_bytes }}</code> bytes</div>
+        {% else %}
+          <div><strong style="color:#111827;">No output file yet</strong></div>
+          <div>It will appear after you run the analysis.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if request.query_params.get("error") %}
+      <div style="
+          margin-top: 0.9rem;
+          padding: 0.75rem 0.85rem;
+          border-radius: 12px;
+          border: 1px solid #fecaca;
+          background: #fee2e2;
+          color: #991b1b;
+        ">
+        Error: <code>{{ request.query_params.get("error") }}</code>
+        <div style="margin-top:0.35rem; color:#7f1d1d;">
+          If <code>script_failed</code>, check <code>/data/zipf_vocab_analysis_last_error.log</code>.
+        </div>
+      </div>
+    {% elif request.query_params.get("ok") %}
+      <div style="
+          margin-top: 0.9rem;
+          padding: 0.75rem 0.85rem;
+          border-radius: 12px;
+          border: 1px solid #bbf7d0;
+          background: #dcfce7;
+          color: #166534;
+        ">
+        ✓ Analysis ran successfully.
+      </div>
+    {% endif %}
+
+    <div style="margin-top:0.9rem; color: var(--muted); font-size: 0.9rem;">
+      Script: <code>{{ script_path }}</code>
+    </div>
+  </div>
+
+  <div style="
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      max-width: 900px;
+    ">
+    <h2 style="margin:0 0 0.6rem 0; font-size: 1rem;">Output JSON</h2>
+
+    {% if json_pretty %}
+      <pre style="
+          margin: 0;
+          overflow: auto;
+          max-height: 70vh;
+          padding: 0.9rem;
+          border-radius: 12px;
+          border: 1px solid var(--border);
+          background: #0b1220;
+          color: #e5e7eb;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+          font-size: 0.9rem;
+          line-height: 1.35;
+        ">{{ json_pretty }}</pre>
+    {% else %}
+      <p style="color: var(--muted); margin: 0;">
+        No JSON loaded yet. Click “Run vocab analysis” above.
+      </p>
+    {% endif %}
+  </div>
+{% endblock %}

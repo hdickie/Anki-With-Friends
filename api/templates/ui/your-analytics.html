@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block title %}Vocab Analysis — Anki with Friends{% endblock %}
+
+{% block content %}
+  <h1 style="margin-top:0;">Vocab analysis</h1>
+  <p style="color: var(--muted); max-width: 75ch;">
+    Click to run the analysis script and regenerate <code>zipf_vocab_analysis.json</code>.
+  </p>
+
+  <div style="
+      background: grey;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      max-width: 900px;
+      margin-bottom: 1rem;
+    ">
+
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap: 1rem; flex-wrap: wrap;">
+      <form method="post" action="/analysis/vocab/run" style="margin:0;">
+        <button type="submit" style="
+            border: 1px solid var(--border);
+            background: grey;
+            border-radius: 10px;
+            padding: 0.6rem 0.9rem;
+            cursor: pointer;
+            font-weight: 650;
+          ">
+          Run vocab analysis
+        </button>
+      </form>
+
+      <!-- JS will populate this on page load -->
+      <div id="fileStatus" style="color: var(--muted); font-size: 0.95rem; min-width: 320px;">
+        <div><strong style="color:#111827;">Checking for output…</strong></div>
+        <div>One moment.</div>
+      </div>
+    </div>
+
+    {% if request.query_params.get("error") %}
+      <div style="
+          margin-top: 0.9rem;
+          padding: 0.75rem 0.85rem;
+          border-radius: 12px;
+          border: 1px solid #fecaca;
+          background: #fee2e2;
+          color: #991b1b;
+        ">
+        Error: <code>{{ request.query_params.get("error") }}</code>
+        <div style="margin-top:0.35rem; color:#7f1d1d;">
+          If <code>script_failed</code>, check <code>/data/zipf_vocab_analysis_last_error.log</code>.
+        </div>
+      </div>
+    {% elif request.query_params.get("ok") %}
+      <div style="
+          margin-top: 0.9rem;
+          padding: 0.75rem 0.85rem;
+          border-radius: 12px;
+          border: 1px solid #bbf7d0;
+          background: #dcfce7;
+          color: #166534;
+        ">
+        ✓ Analysis ran successfully.
+      </div>
+    {% endif %}
+
+    <!-- <div style="margin-top:0.9rem; color: var(--muted); font-size: 0.9rem;">
+      Script: <code>{{ script_path }}</code>
+    </div> -->
+  </div>
+
+    <div style="
+      background: grey;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      max-width: 900px;
+      margin-bottom: 1rem;
+    ">
+    <h2 style="margin:0 0 0.75rem 0; font-size: 1rem;">Summary</h2>
+
+    <table id="summaryTable" style="
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.95rem;
+      ">
+      <thead>
+        <tr style="background:#f9fafb;">
+          <th style="text-align:left; padding:0.5rem; border-bottom:1px solid var(--border);">
+            Metric
+          </th>
+          <th style="text-align:right; padding:0.5rem; border-bottom:1px solid var(--border);">
+            Value
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td colspan="2" style="
+              padding:0.75rem;
+              color: var(--muted);
+            ">
+            No data yet. Run the analysis to populate this table.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+
+  <div style="
+      background: grey;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      max-width: 900px;
+    ">
+    <h2 style="margin:0 0 0.6rem 0; font-size: 1rem;">Output JSON</h2>
+
+    <!-- JS will populate this on page load -->
+    <pre id="jsonOut" style="
+        margin: 0;
+        overflow: auto;
+        max-height: 70vh;
+        padding: 0.9rem;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: #0b1220;
+        color: #e5e7eb;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+        font-size: 0.9rem;
+        line-height: 1.35;
+      ">Loading…</pre>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const statusEl = document.getElementById("fileStatus");
+  const jsonEl = document.getElementById("jsonOut");
+  const summaryTable = document.getElementById("summaryTable");
+
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[c]));
+  }
+
+  function renderNoFile() {
+    statusEl.innerHTML = `
+      <div><strong style="color:#111827;">No output file yet</strong></div>
+      <div>It will appear after you run the analysis.</div>
+    `;
+    jsonEl.textContent = "No JSON loaded yet. Click “Run vocab analysis”.";
+  }
+
+  function renderFile(meta) {
+    statusEl.innerHTML = `
+      <div><strong style="color:#111827;">Existing output found</strong></div>
+      <div>Path: <code>${esc(meta.path)}</code></div>
+      <div>Modified: <code>${esc(meta.modified)}</code></div>
+      <div>Size: <code>${esc(meta.size_bytes)}</code> bytes</div>
+    `;
+  }
+
+  async function loadStatusAndJson() {
+    console.log("vocab page script loaded");
+    // 1) status
+    let meta;
+    try {
+      const r = await fetch("/analysis/vocab/status", { method: "GET" });
+      meta = await r.json();
+    } catch (e) {
+      statusEl.innerHTML = `
+        <div><strong style="color:#111827;">Status check failed</strong></div>
+        <div style="color:#b91c1c;">${esc(e)}</div>
+      `;
+      jsonEl.textContent = "Could not load status.";
+      return;
+    }
+
+    if (!meta || !meta.exists) {
+      renderNoFile();
+      return;
+    }
+
+    renderFile(meta);
+
+    // 2) json contents
+    try {
+      const r2 = await fetch("/analysis/vocab/json", { cache: "no-store" });
+      if (!r2.ok) throw new Error(`HTTP ${r2.status}`);
+
+      const data = await r2.json();
+      console.log("vocab json", data);
+
+      // Accept either wrapped or raw responses
+      const payload = (data && data.data) ? data.data : data;
+
+
+      // // Schema-aware readiness check
+      // const hasContent =
+      //   payload &&
+      //   (payload.summary ||
+      //    payload.zipf_split ||
+      //    payload.rows_by_zipf_bucket ||
+      //    payload.rows_effective ||
+      //    payload.rows_deck);
+
+      // if (!hasContent) {
+      //   jsonEl.textContent = "No JSON loaded yet. Click “Run vocab analysis”.";
+      //   return;
+      // }
+
+      console.log("raw data type:", Array.isArray(data) ? "array" : typeof data);
+      console.log("raw data keys:", (data && typeof data === "object" && !Array.isArray(data)) ? Object.keys(data) : "(no keys)");
+      console.log("raw data:", data);
+
+
+      if (payload.summary && typeof payload.summary === "object") {
+        renderSummaryTable(payload);
+      } else {
+        console.log('did not render summary table');
+      }
+
+      // Show *something* useful even before you build a fancy UI
+      jsonEl.style.whiteSpace = "pre-wrap";
+      jsonEl.textContent = JSON.stringify(data, null, 4);
+
+    } catch (e) {
+      console.error(e);
+      jsonEl.textContent = `Failed to load JSON: ${e}`;
+    }
+
+    
+
+  }
+  console.log("vocab page script loaded");
+  loadStatusAndJson();
+
+  function renderSummaryTable(payload) {
+      const host = document.querySelector("#summaryTable");
+      if (!host) throw new Error('renderSummaryTable: missing "#summaryTable"');
+      host.replaceChildren();
+
+      // ---- 1) Overall summary table (payload.summary) ----
+      if (payload?.summary) {
+        host.appendChild(
+          makeKeyValueTable("Overall", payload.summary, [
+            { label: "Universe (all)", key: "universe_count" },
+            { label: "All cards (raw)", key: "all_cards_count_raw" },
+            { label: "All cards (unique)", key: "all_cards_count_unique" },
+            { label: "Mastered (unique)", key: "mastered_count_unique" },
+          ])
+        );
+      }
+
+      // ---- 2) Zipf split tables (payload.zipf_split) ----
+      const zipf = payload?.zipf_split;
+      if (!zipf) return;
+
+      const GROUPS = [
+        { title: "High Zipf", key: "high_zipf_ge_4" },
+        { title: "Low Zipf",  key: "low_zipf_lt_4" },
+        { title: "No Zipf",   key: "not_in_zipf" }, // <-- this is your actual key
+      ];
+
+      const ROWS = [
+        { label: "Universe",                key: "universe_total" },
+        { label: "Have Card",               compute: b => (b.universe_total ?? 0) - (b.no_card ?? 0) },
+        { label: "Total Mastered",          key: "mastered_total" },
+        { label: "Mastered Credit Only",    key: "mastered_credit_only" },
+        { label: "Mastered",                key: "mastered_with_card" },
+        { label: "Have Card, Not Mastered", key: "has_card_not_mastered" },
+      ];
+
+      for (const g of GROUPS) {
+        host.appendChild(makeKeyValueTable(g.title, zipf[g.key] ?? {}, ROWS));
+      }
+    }
+
+    function makeKeyValueTable(title, obj, rows) {
+      const wrap = document.createElement("section");
+      wrap.style.marginBottom = "1rem";
+
+      const h = document.createElement("div");
+      h.textContent = title;
+      h.style.fontWeight = "700";
+      h.style.margin = "0.25rem 0 0.5rem 0";
+      wrap.appendChild(h);
+
+      const table = document.createElement("table");
+      table.style.width = "100%";
+      table.style.borderCollapse = "collapse";
+
+      const tbody = document.createElement("tbody");
+
+      for (const r of rows) {
+        const tr = document.createElement("tr");
+
+        const tdLabel = document.createElement("td");
+        tdLabel.textContent = r.label;
+        tdLabel.style.padding = "0.5rem";
+        tdLabel.style.borderBottom = "1px solid var(--border)";
+        tdLabel.style.opacity = "0.9";
+
+        const tdVal = document.createElement("td");
+        const value = r.compute ? r.compute(obj) : obj[r.key];
+        tdVal.textContent = value == null ? "—" : String(value);
+        tdVal.style.padding = "0.5rem";
+        tdVal.style.borderBottom = "1px solid var(--border)";
+        tdVal.style.textAlign = "right";
+        tdVal.style.fontVariantNumeric = "tabular-nums";
+
+        tr.appendChild(tdLabel);
+        tr.appendChild(tdVal);
+        tbody.appendChild(tr);
+      }
+
+      table.appendChild(tbody);
+      wrap.appendChild(table);
+      return wrap;
+    };
+
+
+</script>
+{% endblock %}

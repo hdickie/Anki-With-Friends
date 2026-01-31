@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h1>Home</h1>
+
+  {% if submitted %}
+    <p><strong>Got it.</strong> You submitted:</p>
+    <pre>{{ form | tojson(indent=2) }}</pre>
+  {% endif %}
+
+  <form method="post" action="/ui/index">
+    <label>
+      Deck name:
+      <input type="text" name="deck_name" />
+    </label>
+    <br /><br />
+    <label>
+      Max cards:
+      <input type="number" name="max_cards" value="20" />
+    </label>
+    <br /><br />
+    <button type="submit">Submit</button>
+  </form>
+{% endblock %}

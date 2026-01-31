@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h1>About Anki with Friends</h1>
+
+  <p>Anki provides great stats of its own, which are not reproduced here. The goal of this page is to use the Zipf and media-specific data sources along with card tags to measure some proxy of fluency and to identify weak points.</p>
+
+  <h3>Defining Fluency</h3>
+  <p>This page operationalizes fluency as familiarity with the most common vocab words.</p>
+  <p>Word frequency is measured using Zipf scores, where higher values correspond to more commonly used words. For this project, Zipf ≥ 4.0 is chosen as a cutoff for “fluency-relevant” vocabulary. This choice is somewhat arbitrary.  In this system: a Zipf score of 4.0 or higher represents words that occur frequently enough to be considered core vocabulary. Words below this threshold tend to be less common, more specialized, or domain-specific.</p>
+
+<p>The tables on this page compare your Anki card collection against the Zipf ≥ 4.0 vocabulary set, and separately evaluate which of those words you actually know. Knowledge is quantified using Anki’s FSRS retrievability, with a threshold of ≥ 0.9 indicating reliable recall. Together, these metrics answer the following questions:
+<ul>
+  <li>(a) How many of your cards correspond to words with Zipf ≥ 4.0?</li>
+  <li>(b) How many correspond to words with Zipf < 4.0?</li>
+  <li>(c) How many are not present in the Zipf dataset at all?</li>
+  <li>(d) How many high-frequency words (Zipf ≥ 4.0) do you reliably know?</li>
+  <li>(e) How many lower-frequency words (Zipf < 4.0) do you reliably know?</li>
+  <li>(f) How many known words fall outside the Zipf dataset?</li>
+</ul>
+The point of these counts are to implement the difference that having a card is not the same as knowing a word, and knowing many low-frequency words is not the same as being fluent.</p>
+
+
+<p>By comparing these counts before and after adding new cards, you can answer:</p>
+
+<p>Are these cards high-impact?
+Do they meaningfully expand your coverage of high-frequency vocabulary, or do they represent a niche domain? (Both can be valuable but are different goals.)</p>
+
+<p>Am I moving toward fluency?
+After a period of study, have your gains primarily increased mastery of high-frequency vocabulary, or have they accumulated in lower-frequency regions?</p>
+
+<p>This framework makes vocabulary growth measurable and keeps “fluency” grounded in concrete repeated, reliable access to the words that matter most.</p>
+
+<h3>Measuring Grammar</h3>
+<p>Using an LLM, cards may be generated that are intended to test a specific aspect of grammar. Since vocab is not the point of these exercises, an attempt is made to bias the words on these cards towards words that you have already mastered or at least have a card for. Even with a large vocab there is typically some new words used, so "primer" decks for these sentences are made available that may be studied in advance. These are not strictly necesssary though- if you select Again, Hard, Good, or Easy based off of grammar alone and regardless of vocab, Anki will receive the appropriate signal about your knowledge. That said, it is not implemented for the back of the card to tell you what it was testing, so there is some ambiguity here.</p>
+
+{% endblock %}

@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Simple HTTP Server</title>
+  </head>
+  <body>
+    <h1>Static site is up</h1>
+    <p>API health check (from your browser):</p>
+    <pre id="out">Loading…</pre>
+
+    <script>
+      fetch("http://localhost:8000/health")
+        .then(r => r.json())
+        .then(j => (document.getElementById("out").textContent = JSON.stringify(j, null, 2)))
+        .catch(e => (document.getElementById("out").textContent = String(e)));
+    </script>
+  </body>
+</html>

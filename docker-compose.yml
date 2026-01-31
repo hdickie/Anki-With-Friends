@@ -1,0 +1,36 @@
+services:
+  api:
+    build: ./api
+    container_name: fastapi_api
+    working_dir: /app
+    command: >
+      sh -c "
+      python -m spacy download en_core_web_sm &&
+      uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+      "
+    environment:
+      - DB_PATH=/data/app.db
+      - ANALYSIS_DIR=/data
+      - VOCAB_SCRIPT_PATH=/app/scripts/vocab-analysis.py
+      - ANKI_CONNECT_URL=http://host.docker.internal:8765
+      - FSRS_API=http://host.docker.internal:8787/fsrs
+    volumes:
+      - ./:/app
+      - sqlite_data:/data
+      - "/Users/hume/Library/Application Support/Anki2/Hume/collection.anki2:/hostdata/collection.anki2:ro"
+    ports:
+      - "8000:8000"
+
+
+  web:
+    image: nginx:alpine
+    container_name: simple_http
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+volumes:
+  sqlite_data:

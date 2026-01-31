@@ -1,0 +1,9 @@
+fastapi==0.115.8
+uvicorn[standard]==0.34.0
+jinja2==3.1.5
+python-multipart==0.0.9
+requests>=2.31
+pandas>=2.1
+spacy>=3.7
+nltk>=3.8
+wordfreq>=3.0

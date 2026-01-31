@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h1>Getting Started</h1>
+
+  <p>My computer is a Mac, so some of this likely will not work for you, just let me know.</p>
+  <p>Your computer use a file copy of your Anki collection. First, sync your collection, and then close Anki.</p>
+  <p>On the "Your Data" page, confirm that your data has been loaded. If not, change this line:</p>
+  <p><code>      - "/Users/hume/Library/Application Support/Anki2/Hume/collection.anki2:/hostdata/collection.anki2:ro"</code></p>
+  <p>In your docker-compose.yml and restart the project with this command:</p>
+<p><code>docker compose up --build</code></p>
+<p>Note that your terminal should be in the same folder as the docker-compose.yml</p>
+<p>Second, there will be a card that confirms your access to the LLM.</p>
+  
+
+
+{% endblock %}

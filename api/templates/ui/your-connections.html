@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+
+{% block title %}System Status — Anki with Friends{% endblock %}
+
+{% block content %}
+  <h1 style="margin-top:0;">System checks</h1>
+  <p style="color: var(--muted); max-width: 70ch;">
+    This page verifies two things:
+    (1) your host-mounted Anki collection is visible, and
+    (2) your local chat endpoint is reachable.
+  </p>
+
+  <!-- Hostdata Card -->
+  <h2 style="margin: 1.25rem 0 0.5rem 0; font-size: 1rem;">Hostdata mount check</h2>
+  <p style="color: var(--muted); max-width: 70ch; margin-top: 0;">
+    Calls <code>/debug/hostdata</code> and verifies <code>/hostdata/collection.anki2</code>.
+  </p>
+
+  <div id="card-hostdata" style="
+      background: grey;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      max-width: 900px;
+      margin-bottom: 1rem;
+    ">
+    <div id="status-hostdata" class="status pending" aria-live="polite" style="
+        display: flex;
+        gap: 0.75rem;
+        align-items: flex-start;
+      ">
+      <div class="icon" style="
+          width: 34px;
+          height: 34px;
+          border-radius: 999px;
+          display: grid;
+          place-items: center;
+          font-weight: 700;
+          flex: 0 0 auto;
+          user-select: none;
+          background: #e5e7eb;
+          color: #374151;
+          border: 1px solid #d1d5db;
+        ">…</div>
+
+      <div style="flex:1; min-width: 0;">
+        <p id="title-hostdata" style="margin:0; font-weight: 650;">Checking…</p>
+        <pre id="meta-hostdata" style="
+            margin: 0.5rem 0 0 0;
+            color: #374151;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            word-break: break-word;
+          "></pre>
+      </div>
+    </div>
+
+    <button id="retry-hostdata" type="button" style="
+        margin-top: 1rem;
+        border: 1px solid var(--border);
+        background: grey;
+        border-radius: 10px;
+        padding: 0.5rem 0.75rem;
+        cursor: pointer;
+      ">Retry</button>
+
+    <div id="hint-hostdata" style="margin-top:0.75rem; color: var(--muted); font-size: 0.9rem;"></div>
+  </div>
+
+  <!-- Chat Endpoint Card -->
+  <h2 style="margin: 1.25rem 0 0.5rem 0; font-size: 1rem;">Local chat endpoint check</h2>
+  <p style="color: var(--muted); max-width: 70ch; margin-top: 0;">
+    Sends a tiny request to <code id="chat-endpoint-label"></code> and verifies it responds successfully.
+  </p>
+
+  <div id="card-chat" style="
+      background: grey;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      max-width: 900px;
+    ">
+    <div id="status-chat" class="status pending" aria-live="polite" style="
+        display: flex;
+        gap: 0.75rem;
+        align-items: flex-start;
+      ">
+      <div class="icon" style="
+          width: 34px;
+          height: 34px;
+          border-radius: 999px;
+          display: grid;
+          place-items: center;
+          font-weight: 700;
+          flex: 0 0 auto;
+          user-select: none;
+          background: #e5e7eb;
+          color: #374151;
+          border: 1px solid #d1d5db;
+        ">…</div>
+
+      <div style="flex:1; min-width: 0;">
+        <p id="title-chat" style="margin:0; font-weight: 650;">Checking…</p>
+        <pre id="meta-chat" style="
+            margin: 0.5rem 0 0 0;
+            color: #374151;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            word-break: break-word;
+          "></pre>
+      </div>
+    </div>
+
+    <button id="retry-chat" type="button" style="
+        margin-top: 1rem;
+        border: 1px solid var(--border);
+        background: grey;
+        border-radius: 10px;
+        padding: 0.5rem 0.75rem;
+        cursor: pointer;
+      ">Retry</button>
+
+    <div id="hint-chat" style="margin-top:0.75rem; color: var(--muted); font-size: 0.9rem;"></div>
+  </div>
+
+  <style>
+    /* Shared status styling for both cards */
+    .ok .icon {
+      background: #dcfce7 !important;
+      color: #166534 !important;
+      border-color: #bbf7d0 !important;
+    }
+    .bad .icon {
+      background: #fee2e2 !important;
+      color: #991b1b !important;
+      border-color: #fecaca !important;
+    }
+    .pending .icon {
+      background: #e5e7eb !important;
+      color: #374151 !important;
+      border-color: #d1d5db !important;
+    }
+  </style>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    // ----------------------------
+    // Config
+    // ----------------------------
+    // Hostdata check
+    const HOSTDATA_ENDPOINT = "/debug/hostdata";
+    const TARGET_PATH = "/hostdata/collection.anki2";
+
+    // Chat check (adjust these if your local server differs)
+    // If your Python chat() uses BASE_URL + "/chat/completions",
+    // then from this UI (served by FastAPI) the equivalent is:
+    //   - either proxy it through FastAPI (recommended), OR
+    //   - call it directly if it's same-origin.
+    //
+    // For now, we assume your FastAPI app can reach it at this path
+    // (e.g., FastAPI proxies to the local LLM), or it is hosted by the same app.
+    const CHAT_ENDPOINT = "/chat/completions"; // change to "/v1/chat/completions" if needed
+    const CHAT_METHOD = "POST";
+
+    // Minimal "OpenAI-ish" payload; tweak if your local Gemini-compatible server expects something else.
+    const CHAT_TEST_BODY = {
+      model: "local",
+      messages: [{ role: "user", content: "ping" }],
+      max_tokens: 1
+    };
+
+    // ----------------------------
+    // Shared helpers
+    // ----------------------------
+    function makeCard(domPrefix) {
+      const statusEl = document.getElementById(`status-${domPrefix}`);
+      const iconEl = statusEl.querySelector(".icon");
+      const titleEl = document.getElementById(`title-${domPrefix}`);
+      const metaEl = document.getElementById(`meta-${domPrefix}`);
+      const hintEl = document.getElementById(`hint-${domPrefix}`);
+      const retryBtn = document.getElementById(`retry-${domPrefix}`);
+
+      function setStatus(kind, title, meta, hint) {
+        statusEl.classList.remove("ok", "bad", "pending");
+        statusEl.classList.add(kind);
+
+        iconEl.textContent = kind === "ok" ? "✓" : kind === "bad" ? "✗" : "…";
+        titleEl.textContent = title;
+        metaEl.textContent = meta || "";
+        hintEl.textContent = hint || "";
+      }
+
+      return { setStatus, retryBtn };
+    }
+
+    function formatBytes(n) {
+      if (!Number.isFinite(n)) return String(n);
+      const units = ["B", "KB", "MB", "GB", "TB"];
+      let i = 0;
+      let v = n;
+      while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+      const dp = i === 0 ? 0 : 2;
+      return `${v.toFixed(dp)} ${units[i]} (${n} bytes)`;
+    }
+
+    async function safeText(resp, maxLen = 1200) {
+      try {
+        const t = await resp.text();
+        return (t.length > maxLen) ? (t.slice(0, maxLen) + "…") : t;
+      } catch {
+        return "(could not read response body)";
+      }
+    }
+
+    // ----------------------------
+    // Hostdata check
+    // ----------------------------
+    const hostCard = makeCard("hostdata");
+
+    async function checkHostdata() {
+      hostCard.setStatus("pending", "Checking…", "", "");
+
+      let resp;
+      try {
+        resp = await fetch(HOSTDATA_ENDPOINT, { method: "GET" });
+      } catch (e) {
+        hostCard.setStatus(
+          "bad",
+          "Request failed",
+          String(e),
+          "If this is being served from a different port than the API, you may need CORS or an nginx proxy."
+        );
+        return;
+      }
+
+      if (!resp.ok) {
+        hostCard.setStatus(
+          "bad",
+          `HTTP ${resp.status}`,
+          await safeText(resp),
+          "Endpoint returned an error. Check your FastAPI logs."
+        );
+        return;
+      }
+
+      let data;
+      try {
+        data = await resp.json();
+      } catch (e) {
+        hostCard.setStatus("bad", "Bad JSON response", String(e), "Endpoint didn't return JSON.");
+        return;
+      }
+
+      const files = Array.isArray(data.files) ? data.files : [];
+      const found = files.find(f => f && f.path === TARGET_PATH);
+
+      if (!found) {
+        hostCard.setStatus(
+          "bad",
+          "File not found",
+          `Expected:\n${TARGET_PATH}\n\nGot ${files.length} file(s) listed.`,
+          "Double-check your Docker volume mount and Anki profile path."
+        );
+        return;
+      }
+
+      const size = formatBytes(found.size_bytes);
+      const modified = found.modified ?? "(missing modified field)";
+      hostCard.setStatus(
+        "ok",
+        "Hostdata is accessible",
+        `path: ${found.path}\nsize: ${size}\nmodified: ${modified}`,
+        ""
+      );
+    }
+
+    hostCard.retryBtn.addEventListener("click", checkHostdata);
+
+    // ----------------------------
+    // Chat endpoint check
+    // ----------------------------
+    const chatCard = makeCard("chat");
+
+    document.getElementById("chat-endpoint-label").textContent = CHAT_ENDPOINT;
+
+    async function checkChatEndpoint() {
+      chatCard.setStatus("pending", "Checking…", "", "");
+
+      let resp;
+      try {
+        resp = await fetch(CHAT_ENDPOINT, {
+          method: CHAT_METHOD,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(CHAT_TEST_BODY),
+        });
+      } catch (e) {
+        chatCard.setStatus(
+          "bad",
+          "Request failed",
+          String(e),
+          "If your local LLM server is on a different host/port, either proxy it through FastAPI or enable CORS there."
+        );
+        return;
+      }
+
+      if (!resp.ok) {
+        const body = await safeText(resp);
+        chatCard.setStatus(
+          "bad",
+          `HTTP ${resp.status}`,
+          body,
+          "Endpoint is reachable but returned an error. Confirm path + payload schema."
+        );
+        return;
+      }
+
+      // Try to parse JSON, but don't require it.
+      let json = null;
+      try {
+        json = await resp.json();
+      } catch {
+        // ignore
+      }
+
+      const preview = json
+        ? JSON.stringify(json, null, 2).slice(0, 800) + (JSON.stringify(json).length > 800 ? "\n…" : "")
+        : await safeText(resp, 800);
+
+      chatCard.setStatus(
+        "ok",
+        "Chat endpoint is reachable",
+        preview ? `Response preview:\n${preview}` : "OK",
+        ""
+      );
+    }
+
+    chatCard.retryBtn.addEventListener("click", checkChatEndpoint);
+
+    // ----------------------------
+    // Run on load
+    // ----------------------------
+    checkHostdata();
+    checkChatEndpoint();
+  </script>
+{% endblock %}

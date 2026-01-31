@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}Hostdata Status — Anki with Friends{% endblock %}
+
+{% block content %}
+  <h1 style="margin-top:0;">Hostdata mount check</h1>
+  <p style="color: var(--muted); max-width: 70ch;">
+    This page calls <code>/debug/hostdata</code> and verifies that
+    <code>/hostdata/collection.anki2</code> is visible to the app.
+  </p>
+
+  <div id="card" style="
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      max-width: 900px;
+    ">
+    <div id="status" class="status pending" aria-live="polite" style="
+        display: flex;
+        gap: 0.75rem;
+        align-items: flex-start;
+      ">
+      <div class="icon" style="
+          width: 34px;
+          height: 34px;
+          border-radius: 999px;
+          display: grid;
+          place-items: center;
+          font-weight: 700;
+          flex: 0 0 auto;
+          user-select: none;
+          background: #e5e7eb;
+          color: #374151;
+          border: 1px solid #d1d5db;
+        ">…</div>
+
+      <div style="flex:1; min-width: 0;">
+        <p id="title" style="margin:0; font-weight: 650;">Checking…</p>
+        <pre id="meta" style="
+            margin: 0.5rem 0 0 0;
+            color: #374151;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            word-break: break-word;
+          "></pre>
+      </div>
+    </div>
+
+    <button id="retry" type="button" style="
+        margin-top: 1rem;
+        border: 1px solid var(--border);
+        background: white;
+        border-radius: 10px;
+        padding: 0.5rem 0.75rem;
+        cursor: pointer;
+      ">Retry</button>
+
+    <div id="hint" style="margin-top:0.75rem; color: var(--muted); font-size: 0.9rem;"></div>
+  </div>
+
+  <style>
+    /* Minimal status styling; keeps your base template as the source of truth */
+    .ok .icon {
+      background: #dcfce7 !important;
+      color: #166534 !important;
+      border-color: #bbf7d0 !important;
+    }
+    .bad .icon {
+      background: #fee2e2 !important;
+      color: #991b1b !important;
+      border-color: #fecaca !important;
+    }
+    .pending .icon {
+      background: #e5e7eb !important;
+      color: #374151 !important;
+      border-color: #d1d5db !important;
+    }
+  </style>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    // If you run this page via FastAPI (same origin), using a relative URL avoids CORS.
+    const ENDPOINT = "/debug/hostdata";
+    const TARGET_PATH = "/hostdata/collection.anki2";
+
+    const statusEl = document.getElementById("status");
+    const iconEl = statusEl.querySelector(".icon");
+    const titleEl = document.getElementById("title");
+    const metaEl = document.getElementById("meta");
+    const hintEl = document.getElementById("hint");
+    const retryBtn = document.getElementById("retry");
+
+    function setStatus(kind, title, meta, hint) {
+      statusEl.classList.remove("ok", "bad", "pending");
+      statusEl.classList.add(kind);
+
+      iconEl.textContent = kind === "ok" ? "✓" : kind === "bad" ? "✗" : "…";
+      titleEl.textContent = title;
+      metaEl.textContent = meta || "";
+      hintEl.textContent = hint || "";
+    }
+
+    function formatBytes(n) {
+      if (!Number.isFinite(n)) return String(n);
+      const units = ["B", "KB", "MB", "GB", "TB"];
+      let i = 0;
+      let v = n;
+      while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+      const dp = i === 0 ? 0 : 2;
+      return `${v.toFixed(dp)} ${units[i]} (${n} bytes)`;
+    }
+
+    async function checkHostdata() {
+      setStatus("pending", "Checking…", "", "");
+
+      let resp;
+      try {
+        resp = await fetch(ENDPOINT, { method: "GET" });
+      } catch (e) {
+        setStatus(
+          "bad",
+          "Request failed",
+          String(e),
+          "If this is being served from a different port than the API, you may need CORS or an nginx proxy."
+        );
+        return;
+      }
+
+      if (!resp.ok) {
+        setStatus(
+          "bad",
+          `HTTP ${resp.status}`,
+          await resp.text(),
+          "Endpoint returned an error. Check your FastAPI logs."
+        );
+        return;
+      }
+
+      let data;
+      try {
+        data = await resp.json();
+      } catch (e) {
+        setStatus("bad", "Bad JSON response", String(e), "Endpoint didn't return JSON.");
+        return;
+      }
+
+      const files = Array.isArray(data.files) ? data.files : [];
+      const found = files.find(f => f && f.path === TARGET_PATH);
+
+      if (!found) {
+        setStatus(
+          "bad",
+          "File not found",
+          `Expected:\n${TARGET_PATH}\n\nGot ${files.length} file(s) listed.`,
+          "Double-check your Docker volume mount and Anki profile path."
+        );
+        return;
+      }
+
+      const size = formatBytes(found.size_bytes);
+      const modified = found.modified ?? "(missing modified field)";
+      setStatus(
+        "ok",
+        "Hostdata is accessible",
+        `path: ${found.path}\nsize: ${size}\nmodified: ${modified}`,
+        ""
+      );
+    }
+
+    retryBtn.addEventListener("click", checkHostdata);
+    checkHostdata();
+  </script>
+{% endblock %}

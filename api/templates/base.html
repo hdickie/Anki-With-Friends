@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{% block title %}Anki with Friends{% endblock %}</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <style>
+      :root {
+        --bg: #0f1115;        /* near-black, not pure black */
+        --fg: #e6e7eb;        /* soft off-white */
+        --muted: #9aa0a6;     /* readable muted text */
+        --border: #24262b;    /* subtle separators */
+        --accent: #7c7fff;    /* calm indigo accent */
+      }
+
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont,
+                     "Segoe UI", Roboto, sans-serif;
+        color: var(--fg);
+        background: var(--bg);
+        display: flex;
+        min-height: 100vh;
+        flex-direction: column;
+      }
+
+      /* ─── Top Nav ───────────────────────────── */
+
+      header {
+        border-bottom: 1px solid var(--border);
+        background: white;
+      }
+
+      .nav {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0.75rem 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 3rem;
+      }
+
+      .nav-left {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .logo {
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      nav a {
+        display: inline-block;   /* prevents stretching */
+        flex: 0 0 auto;          /* do not grow or shrink */
+        white-space: nowrap;     /* keep labels tight */
+        text-decoration: underline;
+        border-bottom: 2px solid transparent;
+        padding-bottom: 2px;
+      }
+
+      nav a:hover {
+        border-bottom-color: currentColor;
+      }
+
+
+      .nav-right {
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+
+      /* ─── Main Content ──────────────────────── */
+
+      main {
+        flex: 1;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+        width: 100%;
+      }
+
+      /* ─── Footer ────────────────────────────── */
+
+      footer {
+        border-top: 1px solid var(--border);
+        background: grey;
+        padding: 0.75rem 1rem;
+        font-size: 0.85rem;
+        color: var(--muted);
+        text-align: center;
+      }
+    </style>
+
+    {% block head %}{% endblock %}
+  </head>
+
+  <body>
+    <header>
+      <div class="nav">
+        <div class="nav-left">
+          <!-- Logo -->
+          <a href="/" class="logo">Anki with Friends</a>
+
+          <!-- Nav links -->
+          <nav>
+            <a href="/">Home</a>
+            <a href="/ui/your-connections">Your Connections</a>
+            <a href="/ui/browse-data-sources">Browse Data Sources</a>
+            <a href="/ui/your-analytics">Your Analytics</a>
+            <a href="/ui/friends">Friends</a>
+            <a href="/ui/about">About</a>
+          </nav>
+        </div>
+
+        <div class="nav-right">
+          {% if user %}
+            Welcome, {{ user }}
+          {% else %}
+            Welcome
+          {% endif %}
+        </div>
+      </div>
+    </header>
+
+    <main>
+      {% block content %}
+      <!-- Page content goes here -->
+      {% endblock %}
+    </main>
+
+    <footer>
+      © {{ year | default(2026) }} Anki with Friends
+    </footer>
+
+    {% block scripts %}{% endblock %}
+  </body>
+</html>
